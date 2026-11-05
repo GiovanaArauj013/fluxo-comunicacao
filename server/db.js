@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE
+  name TEXT NOT NULL UNIQUE,
+  created_by INTEGER REFERENCES users(id)
 );
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS items (
   assignee_id INTEGER REFERENCES users(id),
   priority TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS comments (
@@ -63,6 +65,20 @@ CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, id);
 CREATE INDEX IF NOT EXISTS idx_items_task ON items(task_id);
 CREATE INDEX IF NOT EXISTS idx_comments_item ON comments(item_id);
 `);
+
+// Migração: bancos antigos não tinham o campo "quem criou" em tarefas e itens.
+for (const table of ["tasks", "items"]) {
+  if (!db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = 'created_by'`).get()) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN created_by INTEGER REFERENCES users(id)`);
+    console.log(`[Migração] Coluna 'created_by' adicionada em ${table}.`);
+  }
+
+  // Roda sempre: preenche registros antigos com o menor id de usuário existente
+  const r = db.prepare(
+    `UPDATE ${table} SET created_by = (SELECT MIN(id) FROM users) WHERE created_by IS NULL`
+  ).run();
+  if (r.changes) console.log(`[Migração] ${r.changes} registro(s) de ${table} atribuídos a um usuário existente.`);
+}
 
 // Migração: bancos criados antes dos grupos tinham chats(user_a, user_b) e chat_reads.
 if (db.prepare("SELECT 1 FROM pragma_table_info('chats') WHERE name = 'user_a'").get()) {
@@ -111,6 +127,9 @@ if (db.prepare("SELECT COUNT(*) c FROM users").get().c === 0) {
   addComment.run(3, 4, "Comercial apoia, desde que os plantões de atendimento sejam mantidos.", "-2 hours");
   addComment.run(3, 5, "Tecnologia a favor.", "-1 hours");
   addComment.run(6, 4, "Já tenho os números. Faltam os depoimentos.", "-3 hours");
+
+  // Dados de exemplo: atribui a criação à Ana (id 1)
+  db.exec("UPDATE tasks SET created_by = 1 WHERE created_by IS NULL; UPDATE items SET created_by = 1 WHERE created_by IS NULL;");
 }
 
 // Conversas de exemplo (somente em banco novo): uma privada e um grupo
