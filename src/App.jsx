@@ -136,6 +136,21 @@ export default function App() {
     } catch (e) { notify(e.message); return false; }
   };
 
+  // Exclui a tarefa (grupo) e, junto, os itens dela. O servidor confere se
+  // quem pediu é o criador da tarefa (ou admin) antes de apagar.
+  const removeTask = async (id) => {
+    const t = tasks.find((x) => x.id === id);
+    if (!window.confirm(`Excluir a tarefa "${t?.name}" e todos os itens dela?`)) return;
+    try {
+      await api.deleteTask(id);
+      setTasks((l) => l.filter((x) => x.id !== id));
+      setItems((l) => l.filter((i) => i.taskId !== id));
+      setOpenId(null);
+      if (task === id) setTask("all");
+      notify("Tarefa excluída");
+    } catch (e) { notify(e.message); }
+  };
+
   // ---------- tela ----------
   if (booting) return <p className="boot">Carregando…</p>;
   if (!user) return <Login onLogin={load} />;
@@ -146,7 +161,7 @@ export default function App() {
   return (
     <DataContext.Provider value={{ user, users, tasks }}>
       <div className="app">
-        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} page={page} onChat={() => setPage("chat")} unread={unread} />
+        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} onDeleteTask={removeTask} page={page} onChat={() => setPage("chat")} unread={unread} />
         <main>
           <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }} onChat={() => setPage("chat")} onLogout={logout} unread={unread} chatOpen={page === "chat"} />
           {page === "chat" ? (

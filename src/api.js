@@ -36,4 +36,5 @@ export const api = {
   addMembers: (id, userIds) => request(`/chats/${id}/members`, { method: "POST", body: { userIds } }),
   leaveChat: (id) => request(`/chats/${id}/leave`, { method: "POST" }),
   createTask: (name) => request("/tasks", { method: "POST", body: { name } }),
+  deleteTask: (id) => request(`/tasks/${id}`, { method: "DELETE" }),
 };

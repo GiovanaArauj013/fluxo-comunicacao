@@ -32,9 +32,12 @@ function toItem(r) {
   return {
     id: r.id, type: r.type, title: r.title, taskId: r.task_id, status: r.status,
     assigneeId: r.assignee_id, priority: r.priority, description: r.description,
-    createdAt: iso(r.created_at), comments: commentsOf.all(r.id).map(toComment),
+    createdById: r.created_by, createdAt: iso(r.created_at), comments: commentsOf.all(r.id).map(toComment),
   };
 }
+
+// Tarefas devolvidas ao front-end, já com o id de quem criou
+const TASK_COLS = "id, name, created_by AS createdById";
 
 // ---------- autenticação ----------
 app.post("/api/auth/login", (req, res) => {
@@ -64,16 +67,30 @@ app.use("/api", auth);
 app.get("/api/me", (req, res) => res.json(req.user));
 app.get("/api/users", (_req, res) => res.json(db.prepare("SELECT id, name, email FROM users ORDER BY name").all()));
 
-app.get("/api/tasks", (_req, res) => res.json(db.prepare("SELECT id, name FROM tasks ORDER BY id").all()));
+app.get("/api/tasks", (_req, res) => res.json(db.prepare(`SELECT ${TASK_COLS} FROM tasks ORDER BY id`).all()));
 app.post("/api/tasks", (req, res) => {
   const name = str(req.body.name, 80);
   if (!name) return fail(res, 400, "Informe o nome da tarefa.");
   try {
-    const r = db.prepare("INSERT INTO tasks (name) VALUES (?)").run(name);
-    res.status(201).json({ id: r.lastInsertRowid, name });
+    // O criador vem sempre do token de login, nunca do corpo da requisição.
+    const r = db.prepare("INSERT INTO tasks (name, created_by) VALUES (?, ?)").run(name, req.user.id);
+    res.status(201).json({ id: r.lastInsertRowid, name, createdById: req.user.id });
   } catch {
     fail(res, 409, "Já existe uma tarefa com esse nome.");
   }
+});
+
+// Só quem criou a tarefa pode excluí-la. Os itens dela (e os comentários deles) saem junto.
+app.delete("/api/tasks/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const t = db.prepare("SELECT id, created_by FROM tasks WHERE id = ?").get(id);
+  if (!t) return fail(res, 404, "Tarefa não encontrada.");
+  if (t.created_by !== req.user.id) return fail(res, 403, "Só quem criou a tarefa pode excluí-la.");
+  db.transaction(() => {
+    db.prepare("DELETE FROM items WHERE task_id = ?").run(id); // comentários: ON DELETE CASCADE
+    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  })();
+  res.status(204).end();
 });
 
 // Carrega tudo de uma vez (usado ao abrir o app e na atualização periódica)
@@ -81,7 +98,7 @@ app.get("/api/bootstrap", (req, res) => {
   res.json({
     user: req.user,
     users: db.prepare("SELECT id, name, email FROM users ORDER BY name").all(),
-    tasks: db.prepare("SELECT id, name FROM tasks ORDER BY id").all(),
+    tasks: db.prepare(`SELECT ${TASK_COLS} FROM tasks ORDER BY id`).all(),
     items: db.prepare("SELECT * FROM items ORDER BY id").all().map(toItem),
   });
 });
@@ -119,8 +136,8 @@ app.post("/api/items", (req, res) => {
   let d;
   try { d = validate({ status: "Novo", priority: "Média", ...req.body }, false); } catch (e) { return fail(res, 400, e.message); }
   const r = db.prepare(
-    "INSERT INTO items (type, title, task_id, status, assignee_id, priority, description) VALUES (@type,@title,@task_id,@status,@assignee_id,@priority,@description)"
-  ).run({ description: "", ...d });
+    "INSERT INTO items (type, title, task_id, status, assignee_id, priority, description, created_by) VALUES (@type,@title,@task_id,@status,@assignee_id,@priority,@description,@created_by)"
+  ).run({ description: "", ...d, created_by: req.user.id }); // criador = usuário logado
   res.status(201).json(toItem(itemRow.get(r.lastInsertRowid)));
 });
 

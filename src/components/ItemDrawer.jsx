@@ -28,6 +28,8 @@ export default function ItemDrawer({ item, onClose, onUpdate, onMove, onComment,
           <select value={item.assigneeId} onChange={(e) => onUpdate({ assigneeId: Number(e.target.value) })}>{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
           <span>Prioridade</span>
           <select value={item.priority} onChange={(e) => onUpdate({ priority: e.target.value })}>{PRIORITIES.map((p) => <option key={p}>{p}</option>)}</select>
+          <span>Criado por</span>
+          <span>{item.createdById ? userName(item.createdById) : "—"}</span>
         </div>
         <h3>Comentários</h3>
         {item.comments.length === 0 && <p className="desc">Nenhum comentário ainda. Comece a conversa abaixo.</p>}
