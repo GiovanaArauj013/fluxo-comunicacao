@@ -11,6 +11,7 @@ import NewItemModal from "./components/NewItemModal.jsx";
 import Login from "./components/Login.jsx";
 import Chat from "./components/Chat.jsx";
 import SectorsModal from "./components/SectorsModal.jsx";
+import AlterarSenha from "./components/AlterarSenha.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -43,10 +44,32 @@ export default function App() {
     setUser(d.user); setUsers(d.users); setTasks(d.tasks); setItems(d.items); setSectors(d.sectors);
   }, []);
 
-  useEffect(() => {
-    if (!getToken()) return;
-    load().catch(() => clearToken()).finally(() => setBooting(false));
+  // Primeiro consulta apenas o perfil. Se a troca de senha estiver pendente,
+  // não carrega tarefas, setores, conversas ou outros dados do sistema.
+  const loadProfile = useCallback(async () => {
+    const currentUser = await api.getCurrentUser();
+    setUser(currentUser);
+
+    if (currentUser.must_change_password) {
+      setUsers([]);
+      setTasks([]);
+      setItems([]);
+      setSectors([]);
+      setChats([]);
+      return;
+    }
+
+    await load();
   }, [load]);
+
+  useEffect(() => {
+    if (!getToken()) {
+      setBooting(false);
+      return;
+    }
+
+    loadProfile().catch(() => clearToken()).finally(() => setBooting(false));
+  }, [loadProfile]);
 
   useEffect(() => {
     const out = () => setUser(null);
@@ -56,15 +79,15 @@ export default function App() {
 
   // Atualização periódica para ver o que os colegas fizeram
   useEffect(() => {
-    if (!user) return;
-    const t = setInterval(() => load().catch(() => {}), 15000);
+    if (!user || user.must_change_password) return;
+    const t = setInterval(() => loadProfile().catch(() => {}), 15000);
     return () => clearInterval(t);
-  }, [user, load]);
+  }, [user, loadProfile]);
 
   // Conversas privadas: atualiza a lista (e as não lidas) a cada 5 s
   const refreshChats = useCallback(() => api.chats().then(setChats).catch(() => {}), []);
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.must_change_password) return;
     refreshChats();
     const t = setInterval(refreshChats, 5000);
     return () => clearInterval(t);
@@ -228,7 +251,16 @@ export default function App() {
 
   // ---------- tela ----------
   if (booting) return <p className="boot">Carregando…</p>;
-  if (!user) return <Login onLogin={load} />;
+  if (!user) return <Login onLogin={loadProfile} />;
+
+  if (user.must_change_password) {
+    return (
+      <AlterarSenha
+        onComplete={load}
+        onLogout={logout}
+      />
+    );
+  }
 
   const current = items.find((i) => i.id === openId);
   const currentTask = typeof task === "number" ? tasks.find((t) => t.id === task) : null;

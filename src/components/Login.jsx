@@ -8,18 +8,20 @@ export default function Login({ onLogin }) {
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const { token } = await api.login(email, password);
-      setToken(token);
-      await onLogin();
-    } catch (err) {
-      setError(err.message);
-      setBusy(false);
-    }
-  };
+  e.preventDefault();
+  setBusy(true);
+  setError("");
+
+  try {
+    await api.login(email, password);
+    await onLogin();
+
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setBusy(false);
+  }
+};
 
   return (
     <div className="login">
@@ -34,7 +36,6 @@ export default function Login({ onLogin }) {
         </label>
         {error && <p className="err" role="alert">{error}</p>}
         <button className="btn p" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
-        <p className="hint">Demonstração: ana@fluxo.com / senha123</p>
       </form>
     </div>
   );

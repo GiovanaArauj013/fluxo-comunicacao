@@ -26,11 +26,12 @@ supabase.auth.onAuthStateChange((event) => {
 // ---------- tradução banco <-> frontend ----------
 const iso = (s) => (s && !/(Z|[+-]\d\d(:?\d\d)?)$/.test(s) ? s.replace(" ", "T") + "Z" : s);
 
-const USER_COLS = "id, nome, email, papel, usuarios_setores(setor_id)";
+const USER_COLS = "id, nome, email, papel, usuarios_setores(setor_id), must_change_password";
 const toUser = (u) => ({
   id: u.id, name: u.nome, email: u.email,
   role: u.papel, // "admin" | "gestor" | "membro"
   sectorIds: (u.usuarios_setores || []).map((x) => x.setor_id).sort((a, b) => a - b),
+  must_change_password: u.must_change_password
 });
 const toSector = (s) => ({ id: s.id, name: s.nome, color: s.cor });
 const toTask = (t) => ({ id: t.id, name: t.nome_da_tarefa, createdById: t.criado_por, sectorId: t.setor_id ?? null });
@@ -78,12 +79,55 @@ async function myProfile() {
 }
 
 export const api = {
+  getCurrentUser: async () => {
+  return await myProfile();
+  },
+  
   login: async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email: String(email).trim(), password });
     if (error) throw new Error("E-mail ou senha incorretos.");
     setToken(data.session.access_token);
-    return { token: data.session.access_token, user: await myProfile() };
+    const user = await myProfile();
+    return {token: data.session.access_token, user };
   },
+
+  changePassword: async (password) => {
+
+    const { data, error } = await supabase.functions.invoke(
+    "force-password-change",
+    {
+      body: { password }
+    }
+  );
+
+  console.log("Resposta da Edge Function:", data);
+  console.log("Erro da requisição:", error);
+
+  if (error) {
+    throw new Error(error.message || "Erro ao chamar a função.");
+  }
+
+  if (!data?.success) {
+    throw new Error(
+      data?.error ||
+      data?.message ||
+      "A função respondeu, mas não confirmou a alteração da senha."
+    );
+  }
+
+  return data;
+  
+  //const { data, error } = await supabase.functions.invoke("force-password-change",
+  //  { body: { password } }
+  //);
+
+  //if (error) throw error;
+  //if (!data?.success) {
+  //  throw new Error(data?.error || "Não foi possível alterar a senha.");
+  //}
+
+  //return data;
+},
 
   bootstrap: async () => {
     const user = await myProfile();
