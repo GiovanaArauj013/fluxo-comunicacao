@@ -10,6 +10,7 @@ import ItemDrawer from "./components/ItemDrawer.jsx";
 import NewItemModal from "./components/NewItemModal.jsx";
 import Login from "./components/Login.jsx";
 import Chat from "./components/Chat.jsx";
+import SectorsModal from "./components/SectorsModal.jsx";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -17,7 +18,10 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [items, setItems] = useState([]);
+  const [sectors, setSectors] = useState([]);
 
+  const [sector, setSector] = useState("all"); // filtro: "all" | "none" (tarefas gerais) | id do setor
+  const [sectorsOpen, setSectorsOpen] = useState(false); // tela de gerenciar setores
   const [task, setTask] = useState("all"); // "all" | "mine" | id da tarefa
   const [typeFilter, setTypeFilter] = useState(null);
   const [query, setQuery] = useState("");
@@ -36,7 +40,7 @@ export default function App() {
   // ---------- carga de dados ----------
   const load = useCallback(async () => {
     const d = await api.bootstrap();
-    setUser(d.user); setUsers(d.users); setTasks(d.tasks); setItems(d.items);
+    setUser(d.user); setUsers(d.users); setTasks(d.tasks); setItems(d.items); setSectors(d.sectors);
   }, []);
 
   useEffect(() => {
@@ -69,19 +73,29 @@ export default function App() {
 
   const logout = () => {
     clearToken();
-    setUser(null); setItems([]); setChats([]); setOpenId(null); setTask("all"); setPage("board");
+    setUser(null); setItems([]); setChats([]); setOpenId(null); setTask("all"); setSector("all"); setSectorsOpen(false); setPage("board");
   };
 
+  const isManager = user?.role === "admin" || user?.role === "gestor";
+
   // ---------- ações ----------
+  // Os itens ficam no setor da tarefa a que pertencem
+  const sectorOfTask = useMemo(() => new Map(tasks.map((t) => [t.id, t.sectorId ?? null])), [tasks]);
+  const inSector = useCallback(
+    (taskId) => sector === "all" || (sector === "none" ? sectorOfTask.get(taskId) == null : sectorOfTask.get(taskId) === sector),
+    [sector, sectorOfTask]
+  );
+
   const visible = useMemo(() => {
     const q = query.toLowerCase();
     return items.filter(
       (i) =>
+        inSector(i.taskId) &&
         (task === "all" || (task === "mine" ? i.assigneeId === user?.id : i.taskId === task)) &&
         (!typeFilter || i.type === typeFilter) &&
         (!q || `${i.title} COM-${i.id}`.toLowerCase().includes(q))
     );
-  }, [items, task, typeFilter, query, user]);
+  }, [items, task, typeFilter, query, user, inSector]);
 
   // Atualiza na tela na hora e confirma com o servidor; em caso de erro, recarrega.
   const update = async (id, patch) => {
@@ -126,9 +140,9 @@ export default function App() {
     } catch (e) { notify(e.message); }
   };
 
-  const addTask = async (name) => {
+  const addTask = async (name, sectorId = null) => {
     try {
-      const t = await api.createTask(name);
+      const t = await api.createTask(name, sectorId);
       setTasks((l) => [...l, t]);
       setTask(t.id);
       setPage("board");
@@ -151,17 +165,80 @@ export default function App() {
     } catch (e) { notify(e.message); }
   };
 
+  // ---------- setores ----------
+  const byName = (a, b) => a.name.localeCompare(b.name, "pt-BR");
+
+  const addSector = async (name, color) => {
+    try {
+      const s = await api.createSector(name, color);
+      setSectors((l) => [...l, s].sort(byName));
+      notify("Setor criado");
+      return true;
+    } catch (e) { notify(e.message); return false; }
+  };
+
+  const renameSector = async (id, name) => {
+    try {
+      const s = await api.updateSector(id, { name });
+      setSectors((l) => l.map((x) => (x.id === id ? s : x)).sort(byName));
+    } catch (e) { notify(e.message); }
+  };
+
+  const removeSector = async (id) => {
+    const s = sectors.find((x) => x.id === id);
+    if (!window.confirm(`Excluir o setor "${s?.name}"? As tarefas dele passam a ser gerais.`)) return;
+    try {
+      await api.deleteSector(id);
+      setSectors((l) => l.filter((x) => x.id !== id));
+      setTasks((l) => l.map((t) => (t.sectorId === id ? { ...t, sectorId: null } : t)));
+      setUsers((l) => l.map((u) => ({ ...u, sectorIds: u.sectorIds.filter((x) => x !== id) })));
+      setUser((u) => (u ? { ...u, sectorIds: u.sectorIds.filter((x) => x !== id) } : u));
+      if (sector === id) setSector("all");
+      notify("Setor excluído");
+    } catch (e) { notify(e.message); }
+  };
+
+  const changeUserSectors = async (userId, sectorIds) => {
+    try {
+      await api.setUserSectors(userId, sectorIds);
+      setUsers((l) => l.map((u) => (u.id === userId ? { ...u, sectorIds } : u)));
+      setUser((u) => (u && u.id === userId ? { ...u, sectorIds } : u));
+    } catch (e) { notify(e.message); }
+  };
+
+  const changeUserRole = async (userId, role) => {
+    try {
+      await api.setUserRole(userId, role);
+      setUsers((l) => l.map((u) => (u.id === userId ? { ...u, role } : u)));
+      setUser((u) => (u && u.id === userId ? { ...u, role } : u));
+      notify("Papel atualizado");
+    } catch (e) { notify(e.message); }
+  };
+
+  const changeTaskSector = async (taskId, sectorId) => {
+    const before = tasks.find((t) => t.id === taskId)?.sectorId ?? null;
+    setTasks((l) => l.map((t) => (t.id === taskId ? { ...t, sectorId } : t)));
+    try {
+      await api.setTaskSector(taskId, sectorId);
+    } catch (e) {
+      setTasks((l) => l.map((t) => (t.id === taskId ? { ...t, sectorId: before } : t)));
+      notify(e.message);
+    }
+  };
+
   // ---------- tela ----------
   if (booting) return <p className="boot">Carregando…</p>;
   if (!user) return <Login onLogin={load} />;
 
   const current = items.find((i) => i.id === openId);
-  const taskTitle = typeof task === "number" ? tasks.find((t) => t.id === task)?.name : null;
+  const currentTask = typeof task === "number" ? tasks.find((t) => t.id === task) : null;
+  const taskTitle = currentTask?.name ?? null;
+  const canEditTaskSector = currentTask && (currentTask.createdById === user.id || isManager);
 
   return (
-    <DataContext.Provider value={{ user, users, tasks }}>
+    <DataContext.Provider value={{ user, users, tasks, sectors }}>
       <div className="app">
-        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} onDeleteTask={removeTask} page={page} onChat={() => setPage("chat")} unread={unread} />
+        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} onDeleteTask={removeTask} page={page} onChat={() => setPage("chat")} unread={unread} sector={sector} onSector={setSector} onManageSectors={() => setSectorsOpen(true)} />
         <main>
           <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }} onChat={() => setPage("chat")} onLogout={logout} unread={unread} chatOpen={page === "chat"} />
           {page === "chat" ? (
@@ -171,6 +248,23 @@ export default function App() {
           <div className="top">
             <div className="crumb">Tarefas / {task === "all" ? "Todas as tarefas" : task === "mine" ? "Atribuídos a mim" : taskTitle}</div>
             <h1>{taskTitle || "Quadro de tarefas"}</h1>
+            {currentTask && (
+              <div style={{ margin: "4px 0 10px", fontSize: 13 }}>
+                <span>Setor: </span>
+                {canEditTaskSector ? (
+                  <select
+                    value={currentTask.sectorId ?? ""}
+                    onChange={(e) => changeTaskSector(currentTask.id, e.target.value ? Number(e.target.value) : null)}
+                    aria-label="Setor da tarefa"
+                  >
+                    <option value="">Geral (sem setor)</option>
+                    {sectors.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                ) : (
+                  <b>{sectors.find((s) => s.id === currentTask.sectorId)?.name ?? "Geral"}</b>
+                )}
+              </div>
+            )}
             <div className="bar">
               <div className="seg">
                 <button className={view === "board" ? "on" : ""} onClick={() => setView("board")}>Quadro</button>
@@ -195,6 +289,16 @@ export default function App() {
           <ItemDrawer item={current} onClose={() => setOpenId(null)} onUpdate={(p) => update(current.id, p)} onMove={(s) => move(current.id, s)} onComment={(t) => addComment(current.id, t)} onDelete={() => remove(current.id)} />
         )}
         {newStatus && <NewItemModal status={newStatus} defaultTask={typeof task === "number" ? task : tasks[0]?.id} onClose={() => setNewStatus(null)} onCreate={create} />}
+        {sectorsOpen && (
+          <SectorsModal
+            onClose={() => setSectorsOpen(false)}
+            onCreate={addSector}
+            onRename={renameSector}
+            onDelete={removeSector}
+            onUserSectors={changeUserSectors}
+            onUserRole={changeUserRole}
+          />
+        )}
         <div className={`toast ${toast ? "on" : ""}`} role="status">{toast}</div>
       </div>
     </DataContext.Provider>
