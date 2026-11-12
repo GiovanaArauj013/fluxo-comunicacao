@@ -26,13 +26,30 @@ supabase.auth.onAuthStateChange((event) => {
 // ---------- tradução banco <-> frontend ----------
 const iso = (s) => (s && !/(Z|[+-]\d\d(:?\d\d)?)$/.test(s) ? s.replace(" ", "T") + "Z" : s);
 
-const USER_COLS = "id, nome, email, papel, usuarios_setores(setor_id), must_change_password";
-const toUser = (u) => ({
-  id: u.id, name: u.nome, email: u.email,
-  role: u.papel, // "admin" | "gestor" | "membro"
-  sectorIds: (u.usuarios_setores || []).map((x) => x.setor_id).sort((a, b) => a - b),
-  must_change_password: u.must_change_password
-});
+const USER_COLS = "id, nome, email, papel, usuarios_setores(setor_id, papel), must_change_password";
+const toUser = (u) => {
+  const memberships = u.usuarios_setores || [];
+
+  return {
+    id: u.id,
+    name: u.nome,
+    email: u.email,
+
+    // Somente admin é um papel global.
+    role: u.papel === "admin" ? "admin" : "membro",
+
+    sectorIds: memberships
+      .map((x) => x.setor_id)
+      .sort((a, b) => a - b),
+
+    sectorRoles: Object.fromEntries(
+      memberships.map((x) => [x.setor_id, x.papel])
+    ),
+
+    must_change_password: u.must_change_password,
+  };
+};
+
 const toSector = (s) => ({ id: s.id, name: s.nome, color: s.cor });
 const toTask = (t) => ({ id: t.id, name: t.nome_da_tarefa, createdById: t.criado_por, sectorId: t.setor_id ?? null });
 const toComment = (c) => ({ id: c.id, authorId: c.user_id, text: c.texto, createdAt: iso(c.created_at) });
@@ -116,7 +133,7 @@ export const api = {
   }
 
   return data;
-  
+
   //const { data, error } = await supabase.functions.invoke("force-password-change",
   //  { body: { password } }
   //);
@@ -213,8 +230,8 @@ export const api = {
     if (!data.length) throw new Error("Só gestores e administradores podem excluir setores.");
     return null;
   },
-  setUserSectors: async (userId, sectorIds) => { await rpc("set_user_sectors", { p_user: userId, p_setores: sectorIds }); return null; },
-  setUserRole: async (userId, role) => { await rpc("set_user_role", { p_user: userId, p_papel: role }); return null; },
+  setUserSectors: async (userId, sectorIds) => { await rpc("set_user_sectors", { p_user: userId, p_setores: sectorIds, });  return null; },
+  setUserSectorRole: async (userId, sectorId, role) => { await rpc("set_user_sector_role", {  p_user: userId, p_setor: sectorId, p_papel: role, }); return null; },
 
   // ----- chat (funções criadas no supabase_chat.sql) -----
   chats: () => rpc("chat_list"),

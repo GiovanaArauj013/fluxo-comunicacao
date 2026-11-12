@@ -99,7 +99,6 @@ export default function App() {
     setUser(null); setItems([]); setChats([]); setOpenId(null); setTask("all"); setSector("all"); setSectorsOpen(false); setPage("board");
   };
 
-  const isManager = user?.role === "admin" || user?.role === "gestor";
 
   // ---------- ações ----------
   // Os itens ficam no setor da tarefa a que pertencem
@@ -208,35 +207,62 @@ export default function App() {
   };
 
   const removeSector = async (id) => {
-    const s = sectors.find((x) => x.id === id);
-    if (!window.confirm(`Excluir o setor "${s?.name}"? As tarefas dele passam a ser gerais.`)) return;
-    try {
-      await api.deleteSector(id);
-      setSectors((l) => l.filter((x) => x.id !== id));
-      setTasks((l) => l.map((t) => (t.sectorId === id ? { ...t, sectorId: null } : t)));
-      setUsers((l) => l.map((u) => ({ ...u, sectorIds: u.sectorIds.filter((x) => x !== id) })));
-      setUser((u) => (u ? { ...u, sectorIds: u.sectorIds.filter((x) => x !== id) } : u));
-      if (sector === id) setSector("all");
-      notify("Setor excluído");
-    } catch (e) { notify(e.message); }
+      const s = sectors.find((x) => x.id === id);
+    if ( !window.confirm(`Excluir o setor "${s?.name}"? As tarefas dele passam a ser gerais.`) ) return;
+    try { await api.deleteSector(id);
+    setSectors((l) => l.filter((x) => x.id !== id));
+    setTasks((l) =>  l.map((t) => t.sectorId === id ? { ...t, sectorId: null } : t ) );
+
+    // Remove o vínculo e a função do setor de todos os usuários.
+    const updateUser = (u) => { if (!u) return u;
+    const sectorRoles = { ...(u.sectorRoles || {}) };
+    delete sectorRoles[id];
+    return {  ...u, sectorIds: (u.sectorIds || []).filter((x) => x !== id), sectorRoles, }; };
+    setUsers((l) => l.map(updateUser));
+    setUser(updateUser);
+
+    if (sector === id) setSector("all"); notify("Setor excluído");
+  } catch (e) {
+    notify(e.message);
+  }
   };
 
   const changeUserSectors = async (userId, sectorIds) => {
-    try {
-      await api.setUserSectors(userId, sectorIds);
-      setUsers((l) => l.map((u) => (u.id === userId ? { ...u, sectorIds } : u)));
-      setUser((u) => (u && u.id === userId ? { ...u, sectorIds } : u));
-    } catch (e) { notify(e.message); }
-  };
+  try { await api.setUserSectors(userId, sectorIds);
+    // Atualiza os vínculos localmente.
+    const updateUser = (u) => {
+      if (!u || u.id !== userId) return u;
+      const sectorRoles = { ...(u.sectorRoles || {}) };
+      // Novos vínculos começam como membros.
+      for (const id of sectorIds) { if (!sectorRoles[id]) { sectorRoles[id] = "membro"; } }
+      // Remove funções dos setores desvinculados.
+      for (const id of Object.keys(sectorRoles)) {  if (!sectorIds.includes(Number(id))) { delete sectorRoles[id]; }}
+      return { ...u, sectorIds, sectorRoles };
+    };
+    setUsers((list) => list.map(updateUser));
+    setUser(updateUser);
+    notify("Equipe atualizada");
+  } catch (e) {
+    notify(e.message);
+  }
+};
 
-  const changeUserRole = async (userId, role) => {
-    try {
-      await api.setUserRole(userId, role);
-      setUsers((l) => l.map((u) => (u.id === userId ? { ...u, role } : u)));
-      setUser((u) => (u && u.id === userId ? { ...u, role } : u));
-      notify("Papel atualizado");
-    } catch (e) { notify(e.message); }
-  };
+
+  
+const changeUserSectorRole = async (userId, sectorId, role) => {
+  try { if (!["gestor", "membro"].includes(role)) { throw new Error("Função inválida."); }
+
+    await api.setUserSectorRole(userId, sectorId, role);
+    const updateUser = (u) => { if (!u || u.id !== userId) return u;
+
+      return { ...u, sectorRoles: {  ...(u.sectorRoles || {}), [sectorId]: role, }, };
+    };
+    setUsers((list) => list.map(updateUser));
+    setUser(updateUser);
+    notify("Função do setor atualizada!"); } catch (e) { notify(e.message || "Não foi possível alterar a função.");
+  }
+};
+
 
   const changeTaskSector = async (taskId, sectorId) => {
     const before = tasks.find((t) => t.id === taskId)?.sectorId ?? null;
@@ -265,7 +291,7 @@ export default function App() {
   const current = items.find((i) => i.id === openId);
   const currentTask = typeof task === "number" ? tasks.find((t) => t.id === task) : null;
   const taskTitle = currentTask?.name ?? null;
-  const canEditTaskSector = currentTask && (currentTask.createdById === user.id || isManager);
+  const canEditTaskSector = currentTask && (currentTask.createdById === user.id || user.role === "admin" || user.sectorRoles?.[currentTask.sectorId] === "gestor");
 
   return (
     <DataContext.Provider value={{ user, users, tasks, sectors }}>
@@ -328,7 +354,7 @@ export default function App() {
             onRename={renameSector}
             onDelete={removeSector}
             onUserSectors={changeUserSectors}
-            onUserRole={changeUserRole}
+            onUserSectorRole={changeUserSectorRole}
           />
         )}
         <div className={`toast ${toast ? "on" : ""}`} role="status">{toast}</div>
