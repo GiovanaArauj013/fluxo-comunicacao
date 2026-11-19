@@ -1,63 +1,187 @@
-# Fluxo – Comunicação interna
+# Fluxo
 
-Quadro de comunicações organizado por tarefas, inspirado no Jira.
-Front-end em React (Vite) e back-end em Node.js (Express) com banco SQLite.
+**Sistema de gerenciamento de tarefas, setores e comunicação interna.**
 
-## Como rodar (desenvolvimento)
+O Fluxo é uma aplicação web desenvolvida para organizar o fluxo de trabalho de equipes, permitindo o gerenciamento de tarefas, a distribuição de responsabilidades e a comunicação entre usuários em um único ambiente.
+
+Inspirado em ferramentas como Jira, o sistema possui uma interface construída em React e utiliza o Supabase como plataforma de backend, autenticação e banco de dados.
+
+##  Funcionalidades
+
+### 📋 Gerenciamento de tarefas
+- Organização de tarefas em quadros visuais, inspirados no Jira.
+- Criação, edição e exclusão de tarefas e itens.
+- Definição de responsáveis e prioridades.
+- Acompanhamento do status e da evolução das atividades.
+- Comentários associados aos itens.
+
+### 🏢 Gerenciamento de setores e permissões
+
+O sistema possui uma estrutura hierárquica de usuários e setores, com permissões específicas para cada nível:
+
+| Perfil | Permissões |
+|---|---|
+| **Administrador** | Gerenciamento global de usuários, setores e permissões. |
+| **Gestor** | Gerenciamento dos membros e das atividades dos setores em que possui função de gestor. |
+| **Membro** | Acesso às atividades e funcionalidades disponibilizadas em seus setores. |
+
+Um mesmo usuário pode possuir diferentes funções em setores distintos, podendo ser gestor em um setor e membro em outro.
+
+###  Autenticação e segurança
+- Autenticação de usuários pelo Supabase Auth.
+- Controle de acesso baseado em papéis e vínculos com setores.
+- Integração com políticas de segurança do banco de dados (RLS).
+- Processo de troca obrigatória de senha no primeiro acesso.
+- Bloqueio do acesso às funcionalidades principais enquanto a troca de senha estiver pendente.
+- Atualização do perfil após a alteração da senha.
+
+### 💬 Comunicação interna
+- Conversas privadas entre usuários.
+- Criação de grupos de comunicação.
+- Adição de participantes aos grupos.
+- Envio e recebimento de mensagens.
+- Identificação de mensagens não lidas.
+- Atualização periódica das conversas e mensagens.
+- Possibilidade de sair de grupos.
+
+##  Tecnologias utilizadas
+
+| Tecnologia | Aplicação |
+|---|---|
+| React | Construção da interface e componentes. |
+| Vite | Ambiente de desenvolvimento e build do front-end. |
+| JavaScript | Lógica e integração da aplicação. |
+| Supabase | Backend, banco de dados e autenticação. |
+| PostgreSQL | Armazenamento dos dados. |
+| Supabase Auth | Gerenciamento de autenticação dos usuários. |
+| Row Level Security (RLS) | Controle de acesso aos dados. |
+| Supabase Edge Functions | Execução de funções de backend, incluindo o fluxo de troca obrigatória de senha. |
+
+##  Como executar o projeto
+
+### 1. Pré-requisitos
+
+- Node.js instalado.
+- npm instalado.
+- Projeto configurado no Supabase.
+
+### 2. Instalação
+
+Clone o repositório:
+
+```bash
+git clone URL_DO_REPOSITORIO
+```
+
+Entre na pasta do projeto:
+
+```bash
+cd fluxo
+```
+
+Instale as dependências:
+
 ```bash
 npm install
-npm run dev:all        # API em :3001 + front-end em :5173
 ```
-Abra http://localhost:5173 e entre com **ana@fluxo.com / senha123**.
-Os outros usuários de exemplo são marina@, carlos@, paula@ e rafael@fluxo.com (mesma senha).
 
-O banco `server/fluxo.db` é criado e populado automaticamente na primeira execução.
-Para recomeçar do zero, apague o arquivo.
+### 3. Configuração do Supabase
 
-## Como rodar (produção)
+Configure as credenciais do projeto em um arquivo `.env` na raiz da aplicação:
+
+```env
+VITE_SUPABASE_URL=SUA_URL_DO_SUPABASE
+VITE_SUPABASE_ANON_KEY=SUA_CHAVE_PUBLICA_DO_SUPABASE
+```
+
+Substitua os valores pelos dados correspondentes ao projeto no painel do Supabase.
+
+**Importante:** não inclua chaves secretas ou credenciais administrativas no código do front-end.
+
+### 4. Executar em desenvolvimento
+
 ```bash
-npm run build
-JWT_SECRET="um-segredo-longo-e-aleatorio" PORT=3001 npm start
+npm run dev
 ```
-O Express serve a API e o front-end compilado no mesmo endereço.
 
-## Variáveis de ambiente
-| Variável | Padrão | Uso |
-|---|---|---|
-| `PORT` | 3001 | porta da API |
-| `JWT_SECRET` | segredo de desenvolvimento | **defina em produção** |
-| `DB_FILE` | `server/fluxo.db` | caminho do arquivo SQLite |
+O Vite disponibilizará a aplicação no endereço indicado pelo terminal, normalmente:
 
-## API (todas as rotas, exceto o login, exigem `Authorization: Bearer <token>`)
-| Método e rota | Descrição |
+```text
+http://localhost:5173
+```
+
+## 🗄️ Estrutura de dados
+
+O Fluxo utiliza o PostgreSQL disponibilizado pelo Supabase.
+
+Entre as principais tabelas e estruturas utilizadas estão:
+
+| Tabela / Estrutura | Responsabilidade |
 |---|---|
-| `POST /api/auth/login` | `{ email, password }` → `{ token, user }` |
-| `GET /api/me` | usuário logado |
-| `GET /api/bootstrap` | usuário, usuários, tarefas e itens com comentários |
-| `GET /api/users` | lista de usuários |
-| `GET /api/tasks` · `POST /api/tasks` | listar e criar tarefas |
-| `GET /api/items` | lista (filtros: `taskId`, `assigneeId`, `status`, `type`) |
-| `POST /api/items` | cria item |
-| `PATCH /api/items/:id` | atualiza campos (status, tarefa, responsável, prioridade, título, descrição) |
-| `DELETE /api/items/:id` | exclui item e seus comentários |
-| `POST /api/items/:id/comments` | `{ text }` → comenta como o usuário logado |
-| `GET /api/chats` | minhas conversas (privadas e grupos), com última mensagem e não lidas |
-| `POST /api/chats` | `{ userId }` abre (ou cria) a conversa privada · `{ name, memberIds }` cria um grupo |
-| `POST /api/chats/:id/members` | `{ userIds }` adiciona pessoas a um grupo |
-| `POST /api/chats/:id/leave` | sai de um grupo (grupo sem ninguém é removido) |
-| `GET /api/chats/:id/messages` | mensagens (`?after=<id>` traz só as novas) e marca como lidas |
-| `POST /api/chats/:id/messages` | `{ text }` envia mensagem |
+| `users` | Informações e perfis dos usuários. |
+| `tasks` | Organização das tarefas. |
+| `items` | Itens e atividades vinculados às tarefas. |
+| `setores` | Cadastro e organização dos setores. |
+| `usuarios_setores` | Vínculo entre usuários e setores, incluindo seus papéis. |
+| `comentario` | Comentários associados às atividades. |
+| Estruturas de chat | Conversas privadas, grupos, participantes e mensagens. |
 
-### Regras das conversas
-- Privadas (1 para 1): só os dois participantes leem e escrevem; para os demais a API responde 404.
-- Grupos: nome de até 60 caracteres, de 3 a 50 pessoas (quem cria + pelo menos 2).
-- Qualquer participante pode adicionar pessoas. Quem entra vê o histórico, mas ele não conta como "não lido".
-- Quem sai deixa de ver o grupo; as mensagens que enviou permanecem.
-- Bancos criados antes dos grupos são migrados automaticamente na primeira execução.
-- A tela busca mensagens novas a cada 3 s e a lista de conversas a cada 5 s.
+A aplicação também utiliza funções do banco de dados (RPC) para operações relacionadas ao gerenciamento de papéis, setores e comunicação.
 
-## Estrutura
-- `server/db.js` – esquema SQLite e dados iniciais
-- `server/index.js` – rotas, validação e autenticação (JWT + bcrypt)
-- `src/api.js` – chamadas à API; `src/context.js` – usuários e tarefas compartilhados
-- `src/App.jsx` – estado e ações; `src/components/` – telas e componentes
+##  Hierarquia e controle de acesso
+
+A autorização considera tanto o papel global do usuário quanto sua função em cada setor.
+
+- Administradores possuem gerenciamento global.
+- Gestores administram somente os setores nos quais possuem essa função.
+- Membros possuem acesso às funcionalidades permitidas nos setores dos quais participam.
+- As permissões são independentes por setor, permitindo que um usuário tenha diferentes responsabilidades.
+
+O controle de acesso aos dados utiliza políticas RLS e operações específicas no Supabase.
+
+##  Estrutura do projeto
+
+```text
+fluxo/
+│
+├── public/
+│
+├── src/
+│   ├── components/
+│   │   ├── Sidebar.jsx
+│   │   ├── Header.jsx
+│   │   ├── Login.jsx
+│   │   └── ...
+│   │
+│   ├── api.js
+│   ├── context.js
+│   ├── data.js
+│   ├── App.jsx
+│   └── main.jsx
+│
+├── supabase/
+│   └── functions/
+│       └── force-password-change/
+│
+├── index.html
+├── package.json
+└── vite.config.js
+```
+
+##  Fluxo de primeiro acesso
+
+Quando um usuário precisa realizar a troca obrigatória de senha:
+
+1. O usuário realiza a autenticação.
+2. O sistema consulta as informações do perfil.
+3. Caso exista uma troca de senha pendente, o acesso ao painel principal é bloqueado.
+4. O usuário é direcionado à tela de alteração de senha.
+5. Após a alteração, o perfil é atualizado e o acesso às funcionalidades é liberado.
+
+##  Objetivo do projeto
+
+Centralizar a organização das atividades e a comunicação entre equipes, oferecendo controle de responsabilidades, gestão hierárquica de setores e acompanhamento do trabalho em um ambiente integrado.
+
+---
+
+**Fluxo — Organização, colaboração e produtividade em um só lugar.**
