@@ -35,7 +35,7 @@ Um mesmo usuário pode possuir diferentes funções em setores distintos, podend
 - Bloqueio do acesso às funcionalidades principais enquanto a troca de senha estiver pendente.
 - Atualização do perfil após a alteração da senha.
 
-### 💬 Comunicação interna
+###  Comunicação interna
 - Conversas privadas entre usuários.
 - Criação de grupos de comunicação.
 - Adição de participantes aos grupos.
@@ -110,7 +110,7 @@ O Vite disponibilizará a aplicação no endereço indicado pelo terminal, norma
 http://localhost:5173
 ```
 
-## 🗄️ Estrutura de dados
+##  Estrutura de dados
 
 O Fluxo utiliza o PostgreSQL disponibilizado pelo Supabase.
 
