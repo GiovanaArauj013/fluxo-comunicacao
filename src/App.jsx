@@ -32,8 +32,6 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [page, setPage] = useState("board"); // "board" | "chat"
   const [chats, setChats] = useState([]);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState(() => { return localStorage.getItem("fluxo_theme") || "light"; });
 
   const notify = (msg) => {
     setToast(msg);
@@ -99,15 +97,6 @@ export default function App() {
   const logout = () => {
     clearToken();
     setUser(null); setItems([]); setChats([]); setOpenId(null); setTask("all"); setSector("all"); setSectorsOpen(false); setPage("board");
-  };
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("fluxo_theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((current) => current === "dark" ? "light" : "dark");
   };
 
 
@@ -275,6 +264,44 @@ const changeUserSectorRole = async (userId, sectorId, role) => {
 };
 
 
+  // A remoção é autorizada novamente no servidor; o estado local só muda
+  // depois que a Edge Function confirma a exclusão da conta.
+  const removeUser = async (userId) => {
+    if (user?.role !== "admin") {
+      notify("Somente administradores podem excluir usuários.");
+      return false;
+    }
+    if (userId === user.id) {
+      notify("Não é possível excluir a própria conta por aqui.");
+      return false;
+    }
+
+    try {
+      await api.deleteUser(userId);
+      setUsers((list) => list.filter((person) => person.id !== userId));
+      // Mantém tarefas e itens existentes, removendo apenas as referências
+      // ao usuário excluído. O SQL de migração também preserva esses registros.
+      setTasks((list) => list.map((item) =>
+        item.createdById === userId ? { ...item, createdById: null } : item
+      ));
+      setItems((list) => list.map((item) => ({
+        ...item,
+        assigneeId: item.assigneeId === userId ? null : item.assigneeId,
+        createdById: item.createdById === userId ? null : item.createdById,
+        comments: (item.comments || []).map((comment) =>
+          comment.authorId === userId ? { ...comment, authorId: null } : comment
+        ),
+      })));
+      await refreshChats();
+      notify("Usuário excluído com sucesso.");
+      return true;
+    } catch (e) {
+      notify(e.message || "Não foi possível excluir o usuário.");
+      return false;
+    }
+  };
+
+
   const changeTaskSector = async (taskId, sectorId) => {
     const before = tasks.find((t) => t.id === taskId)?.sectorId ?? null;
     setTasks((l) => l.map((t) => (t.id === taskId ? { ...t, sectorId } : t)));
@@ -307,29 +334,9 @@ const changeUserSectorRole = async (userId, sectorId, role) => {
   return (
     <DataContext.Provider value={{ user, users, tasks, sectors }}>
       <div className="app">
-        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); setMobileMenuOpen(false); }}
-          onAddTask={addTask}
-          onDeleteTask={removeTask}
-          page={page}
-        onChat={() => { setPage("chat"); setMobileMenuOpen(false); }}
-          unread={unread}
-          sector={sector}
-          onSector={setSector}
-        onManageSectors={() => { setSectorsOpen(true); setMobileMenuOpen(false); }}
-        mobileOpen={mobileMenuOpen}
-        onClose={() => setMobileMenuOpen(false)} />
-
-        {mobileMenuOpen && ( <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} />
-        )}
+        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} onDeleteTask={removeTask} page={page} onChat={() => setPage("chat")} unread={unread} sector={sector} onSector={setSector} onManageSectors={() => setSectorsOpen(true)} />
         <main>
-          <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }}
-            onChat={() => setPage("chat")}
-            onLogout={logout}
-            unread={unread}
-            chatOpen={page === "chat"}
-            onMenu={() => setMobileMenuOpen(true)} 
-            theme={theme}
-            onToggleTheme={toggleTheme}/>
+          <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }} onChat={() => setPage("chat")} onLogout={logout} unread={unread} chatOpen={page === "chat"} />
           {page === "chat" ? (
             <Chat chats={chats} onRefresh={refreshChats} notify={notify} />
           ) : (
@@ -386,6 +393,7 @@ const changeUserSectorRole = async (userId, sectorId, role) => {
             onDelete={removeSector}
             onUserSectors={changeUserSectors}
             onUserSectorRole={changeUserSectorRole}
+            onDeleteUser={removeUser}
           />
         )}
         <div className={`toast ${toast ? "on" : ""}`} role="status">{toast}</div>

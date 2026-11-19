@@ -22,10 +22,9 @@ const styles = {
     overflow: "auto",
     padding: 24,
     borderRadius: 16,
-    background: "var(--white)",
-    color: "var(--ink)",
-    border: "1px solid var(--line)",
-    boxShadow: "0 10px 40px rgba(0,0,0,.35)",
+    background: "var(--bg, #fff)",
+    color: "inherit",
+    boxShadow: "0 10px 40px rgba(0,0,0,.25)",
   },
   header: {
     display: "flex",
@@ -50,32 +49,28 @@ const styles = {
     fontWeight: 600,
   },
   section: {
-    border: "1px solid var(--line)",
+    border: "1px solid rgba(128,128,128,.22)",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    background: "var(--navy-50)",
   },
   input: {
-    input: {
     minWidth: 0,
     padding: "10px 12px",
     borderRadius: 8,
-    border: "1px solid var(--line)",
-    background: "var(--navy-50)",
-    color: "var(--ink)",
-  },
+    border: "1px solid rgba(128,128,128,.35)",
+    background: "var(--bg, #fff)",
+    color: "inherit",
   },
   muted: {
     fontSize: 13,
     opacity: .7,
   },
   person: {
-    border: "1px solid var(--line)",
-  borderRadius: 12,
+    border: "1px solid rgba(128,128,128,.22)",
+    borderRadius: 12,
     marginBottom: 10,
     overflow: "hidden",
-    background: "var(--white)",
   },
   personHeader: {
     display: "flex",
@@ -92,14 +87,12 @@ const styles = {
     padding: "4px 9px",
     borderRadius: 20,
     fontSize: 11,
-    background: "var(--navy-100)",
-    color: "var(--ink)",
-    border: "1px solid var(--line)",
+    background: "rgba(128,128,128,.13)",
   },
   personDetails: {
-     padding: 16,
-    borderTop: "1px solid var(--line)",
-    background: "var(--navy-50)",
+    padding: 16,
+    borderTop: "1px solid rgba(128,128,128,.2)",
+    background: "rgba(128,128,128,.035)",
   },
   sectorGrid: {
     display: "grid",
@@ -113,9 +106,7 @@ const styles = {
     gap: 8,
     padding: 10,
     borderRadius: 8,
-    border: "1px solid var(--line)",
-    background: "var(--white)",
-    color: "var(--ink)",
+    border: "1px solid rgba(128,128,128,.2)",
     fontSize: 13,
   },
 };
@@ -127,6 +118,7 @@ export default function SectorsModal({
   onDelete,
   onUserSectors,
   onUserSectorRole,
+  onDeleteUser,
 }) {
   const { user, users, sectors, isAdmin, isManagerInSector } = useData();
 
@@ -228,8 +220,19 @@ export default function SectorsModal({
   };
 
   return (
-    <div className="ov sectors-modal-overlay" style={styles.overlay} onClick={(e) => {  if (e.target === e.currentTarget) onClose(); }} >
-      <div className="sectors-modal" style={styles.modal}  role="dialog" aria-modal="true" aria-label="Gerenciamento de setores e pessoas">
+    <div
+      className="ov"
+      style={styles.overlay}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Gerenciamento de setores e pessoas"
+      >
         {/* Cabeçalho */}
         <div style={styles.header}>
           <div>
@@ -428,8 +431,8 @@ export default function SectorsModal({
                                       justifyContent: "space-between",
                                       flexWrap: "wrap",
                                       background: checked
-                                        ? "var(--navy-100)"
-                                        : "var(--white)",
+                                        ? "rgba(99,102,241,.08)"
+                                        : "transparent",
                                     }}
                                   >
                                     <label style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "1 1 100px" }}>
@@ -465,6 +468,30 @@ export default function SectorsModal({
                             </div>
                           )}
                         </div>
+
+                        {/* Exclusão de conta: somente administrador e nunca a própria conta. */}
+                        {isAdmin && person.id !== user?.id && (
+                          <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid rgba(128,128,128,.2)" }}>
+                            <strong style={{ fontSize: 14 }}>Ações da conta</strong>
+                            <p style={styles.muted}>A conta e o acesso ao sistema serão removidos. Tarefas e registros existentes serão preservados sempre que possível.</p>
+                            <button
+                              type="button"
+                              className="btn danger"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const confirmed = window.confirm(
+                                  `Excluir permanentemente a conta de ${person.name}? Esta ação não pode ser desfeita.`
+                                );
+                                if (confirmed && onDeleteUser) {
+                                  const deleted = await onDeleteUser(person.id);
+                                  if (deleted) setExpandedUser(null);
+                                }
+                              }}
+                            >
+                              Excluir usuário
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

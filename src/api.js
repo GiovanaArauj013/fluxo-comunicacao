@@ -230,6 +230,33 @@ export const api = {
     if (!data.length) throw new Error("Só gestores e administradores podem excluir setores.");
     return null;
   },
+  // Exclusão de conta: operação privilegiada executada somente na Edge Function.
+  // A chave service_role nunca é enviada ao navegador.
+  deleteUser: async (userId) => {
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { userId },
+    });
+
+    if (error) {
+      // O Supabase pode encapsular o JSON de erro da função em context.
+      const response = error.context;
+      let details = null;
+      if (response && typeof response.json === "function") {
+        try { details = await response.json(); } catch { /* resposta sem JSON */ }
+      }
+      throw new Error(
+        details?.error || data?.error || error.message ||
+        "Não foi possível excluir o usuário."
+      );
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || "A exclusão não foi confirmada pelo servidor.");
+    }
+
+    return data;
+  },
+
   setUserSectors: async (userId, sectorIds) => { await rpc("set_user_sectors", { p_user: userId, p_setores: sectorIds, });  return null; },
   setUserSectorRole: async (userId, sectorId, role) => { await rpc("set_user_sector_role", {  p_user: userId, p_setor: sectorId, p_papel: role, }); return null; },
 
