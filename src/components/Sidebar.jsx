@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useData } from "../context.js";
 import SectorTag from "./SectorTag.jsx";
 
-export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, page, onChat, unread, sector, onSector, onManageSectors }) {
+export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, page, onChat, unread, sector, onSector, onManageSectors, mobileOpen, onClose }) {
   const { user, users, tasks, sectors, isManager } = useData();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
@@ -20,7 +20,7 @@ export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, 
     id === "all" ? itemsInSector.length : id === "mine" ? itemsInSector.filter((i) => i.assigneeId === user.id).length : items.filter((i) => i.taskId === id).length;
 
   const Nav = ({ id, label, text = label }) => (
-    <button className={`nav ${page === "board" && task === id ? "on" : ""}`} onClick={() => onTask(id)} title={label}>
+    <button className={`nav ${page === "board" && task === id ? "on" : ""}`} onClick={() => { onTask(id); onClose?.();}} title={label}>
       <span className="t">{text}</span><span className="n">{count(id)}</span>
     </button>
   );
@@ -36,8 +36,24 @@ export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, 
   };
 
   return (
-    <aside>
-      <div className="logo"><i>F</i>Fluxo</div>
+    <aside className={`sidebar ${mobileOpen ? "mobile-open" : ""}`}>
+      <div className="mobile-sidebar-header">
+      <div className="logo">
+        <i>F</i>Fluxo
+      </div>
+
+      <button
+        className="mobile-close-btn"
+        onClick={onClose}
+        aria-label="Fechar menu"
+      >
+        ×
+      </button>
+    </div>
+
+    <div className="desktop-logo logo">
+      <i>F</i>Fluxo
+    </div>
       <Nav id="all" label="Todas as tarefas" />
       <h4>Tarefas</h4>
       <select
@@ -95,7 +111,7 @@ export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, 
         </>
       )}
       <h4>Conversas</h4>
-      <button className={`nav ${page === "chat" ? "on" : ""}`} onClick={onChat}>
+      <button className={`nav ${page === "chat" ? "on" : ""}`} onClick={() => {onChat(); onClose?.();}}>
         <span className="t">Mensagens e grupos</span>{unread > 0 ? <b className="badge">{unread}</b> : null}
       </button>
     </aside>

@@ -32,6 +32,8 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [page, setPage] = useState("board"); // "board" | "chat"
   const [chats, setChats] = useState([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(() => { return localStorage.getItem("fluxo_theme") || "light"; });
 
   const notify = (msg) => {
     setToast(msg);
@@ -97,6 +99,15 @@ export default function App() {
   const logout = () => {
     clearToken();
     setUser(null); setItems([]); setChats([]); setOpenId(null); setTask("all"); setSector("all"); setSectorsOpen(false); setPage("board");
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("fluxo_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((current) => current === "dark" ? "light" : "dark");
   };
 
 
@@ -296,9 +307,29 @@ const changeUserSectorRole = async (userId, sectorId, role) => {
   return (
     <DataContext.Provider value={{ user, users, tasks, sectors }}>
       <div className="app">
-        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); }} onAddTask={addTask} onDeleteTask={removeTask} page={page} onChat={() => setPage("chat")} unread={unread} sector={sector} onSector={setSector} onManageSectors={() => setSectorsOpen(true)} />
+        <Sidebar items={items} task={task} onTask={(t) => { setPage("board"); setTask(t); setMobileMenuOpen(false); }}
+          onAddTask={addTask}
+          onDeleteTask={removeTask}
+          page={page}
+        onChat={() => { setPage("chat"); setMobileMenuOpen(false); }}
+          unread={unread}
+          sector={sector}
+          onSector={setSector}
+        onManageSectors={() => { setSectorsOpen(true); setMobileMenuOpen(false); }}
+        mobileOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)} />
+
+        {mobileMenuOpen && ( <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} />
+        )}
         <main>
-          <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }} onChat={() => setPage("chat")} onLogout={logout} unread={unread} chatOpen={page === "chat"} />
+          <Header query={query} onQuery={setQuery} onNew={() => { setPage("board"); setNewStatus("Novo"); }}
+            onChat={() => setPage("chat")}
+            onLogout={logout}
+            unread={unread}
+            chatOpen={page === "chat"}
+            onMenu={() => setMobileMenuOpen(true)} 
+            theme={theme}
+            onToggleTheme={toggleTheme}/>
           {page === "chat" ? (
             <Chat chats={chats} onRefresh={refreshChats} notify={notify} />
           ) : (
