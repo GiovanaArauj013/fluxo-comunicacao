@@ -22,9 +22,10 @@ const styles = {
     overflow: "auto",
     padding: 24,
     borderRadius: 16,
-    background: "var(--bg, #fff)",
-    color: "inherit",
-    boxShadow: "0 10px 40px rgba(0,0,0,.25)",
+    background: "var(--white)",
+    color: "var(--ink)",
+    border: "1px solid var(--line)",
+    boxShadow: "0 10px 40px rgba(0,0,0,.35)",
   },
   header: {
     display: "flex",
@@ -49,28 +50,32 @@ const styles = {
     fontWeight: 600,
   },
   section: {
-    border: "1px solid rgba(128,128,128,.22)",
+    border: "1px solid var(--line)",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    background: "var(--navy-50)",
   },
   input: {
+    input: {
     minWidth: 0,
     padding: "10px 12px",
     borderRadius: 8,
-    border: "1px solid rgba(128,128,128,.35)",
-    background: "var(--bg, #fff)",
-    color: "inherit",
+    border: "1px solid var(--line)",
+    background: "var(--navy-50)",
+    color: "var(--ink)",
+  },
   },
   muted: {
     fontSize: 13,
     opacity: .7,
   },
   person: {
-    border: "1px solid rgba(128,128,128,.22)",
-    borderRadius: 12,
+    border: "1px solid var(--line)",
+  borderRadius: 12,
     marginBottom: 10,
     overflow: "hidden",
+    background: "var(--white)",
   },
   personHeader: {
     display: "flex",
@@ -87,12 +92,14 @@ const styles = {
     padding: "4px 9px",
     borderRadius: 20,
     fontSize: 11,
-    background: "rgba(128,128,128,.13)",
+    background: "var(--navy-100)",
+    color: "var(--ink)",
+    border: "1px solid var(--line)",
   },
   personDetails: {
-    padding: 16,
-    borderTop: "1px solid rgba(128,128,128,.2)",
-    background: "rgba(128,128,128,.035)",
+     padding: 16,
+    borderTop: "1px solid var(--line)",
+    background: "var(--navy-50)",
   },
   sectorGrid: {
     display: "grid",
@@ -106,7 +113,9 @@ const styles = {
     gap: 8,
     padding: 10,
     borderRadius: 8,
-    border: "1px solid rgba(128,128,128,.2)",
+    border: "1px solid var(--line)",
+    background: "var(--white)",
+    color: "var(--ink)",
     fontSize: 13,
   },
 };
@@ -219,19 +228,8 @@ export default function SectorsModal({
   };
 
   return (
-    <div
-      className="ov"
-      style={styles.overlay}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={styles.modal}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Gerenciamento de setores e pessoas"
-      >
+    <div className="ov sectors-modal-overlay" style={styles.overlay} onClick={(e) => {  if (e.target === e.currentTarget) onClose(); }} >
+      <div className="sectors-modal" style={styles.modal}  role="dialog" aria-modal="true" aria-label="Gerenciamento de setores e pessoas">
         {/* Cabeçalho */}
         <div style={styles.header}>
           <div>
@@ -430,8 +428,8 @@ export default function SectorsModal({
                                       justifyContent: "space-between",
                                       flexWrap: "wrap",
                                       background: checked
-                                        ? "rgba(99,102,241,.08)"
-                                        : "transparent",
+                                        ? "var(--navy-100)"
+                                        : "var(--white)",
                                     }}
                                   >
                                     <label style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: "1 1 100px" }}>

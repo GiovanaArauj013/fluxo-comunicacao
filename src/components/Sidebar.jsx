@@ -19,11 +19,17 @@ export default function Sidebar({ items, task, onTask, onAddTask, onDeleteTask, 
   const count = (id) =>
     id === "all" ? itemsInSector.length : id === "mine" ? itemsInSector.filter((i) => i.assigneeId === user.id).length : items.filter((i) => i.taskId === id).length;
 
-  const Nav = ({ id, label, text = label }) => (
-    <button className={`nav ${page === "board" && task === id ? "on" : ""}`} onClick={() => { onTask(id); onClose?.();}} title={label}>
-      <span className="t">{text}</span><span className="n">{count(id)}</span>
+  const Nav = ({ id, label, text = label }) => { const active = page === "board" && String(task) === String(id);
+  return (
+    <button className={`nav ${active ? "on" : ""}`} onClick={() => { onTask(id); onClose?.(); }}
+      title={label}
+      aria-current={active ? "page" : undefined}
+    >
+      <span className="t">{text}</span>
+      <span className="n">{count(id)}</span>
     </button>
   );
+};
 
   const submit = async (e) => {
     e.preventDefault();
