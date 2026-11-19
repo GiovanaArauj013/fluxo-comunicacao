@@ -8,14 +8,14 @@ Inspirado em ferramentas como Jira, o sistema possui uma interface construída e
 
 ##  Funcionalidades
 
-### 📋 Gerenciamento de tarefas
+###  Gerenciamento de tarefas
 - Organização de tarefas em quadros visuais, inspirados no Jira.
 - Criação, edição e exclusão de tarefas e itens.
 - Definição de responsáveis e prioridades.
 - Acompanhamento do status e da evolução das atividades.
 - Comentários associados aos itens.
 
-### 🏢 Gerenciamento de setores e permissões
+###  Gerenciamento de setores e permissões
 
 O sistema possui uma estrutura hierárquica de usuários e setores, com permissões específicas para cada nível:
 
